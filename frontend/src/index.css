@@ -187,13 +187,16 @@ button {
   background: #ffffff;
   color: #1d2638;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .control-group input:focus,
 .control-group select:focus {
   border-color: #635bff;
-  box-shadow: 0 0 0 3px rgba(99, 91, 255, 0.1);
+  box-shadow:
+    0 0 0 3px rgba(99, 91, 255, 0.1);
 }
 
 .distance-control {
@@ -208,7 +211,9 @@ button {
   background: #635bff;
   color: white;
   font-weight: 700;
-  transition: transform 0.15s, opacity 0.15s;
+  transition:
+    transform 0.15s,
+    opacity 0.15s;
 }
 
 .search-button:hover:not(:disabled) {
@@ -228,6 +233,57 @@ button {
   color: #5c6575;
   font-size: 12px;
   font-weight: 700;
+}
+
+.clear-button:hover {
+  border-color: #635bff;
+  color: #635bff;
+}
+
+
+/* =========================
+   HINDI SUGGESTIONS
+========================= */
+
+.suggestions {
+  margin-top: 18px;
+  padding-top: 15px;
+  border-top: 1px solid #eef0f4;
+}
+
+.suggestions-label {
+  display: block;
+  margin-bottom: 10px;
+  color: #737c8b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.suggestion-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.suggestion-chip {
+  padding: 7px 11px;
+  border: 1px solid #e0e2ea;
+  border-radius: 999px;
+  background: #fafaff;
+  color: #4f5869;
+  font-size: 12px;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    transform 0.15s;
+}
+
+.suggestion-chip:hover {
+  border-color: #635bff;
+  background: #f0efff;
+  color: #5148d8;
+  transform: translateY(-1px);
 }
 
 .query-help {
@@ -313,16 +369,19 @@ button {
 }
 
 .result-card {
-  padding: 21px;
+  padding: 17px 20px;
   background: white;
   border: 1px solid #e4e7ee;
   border-radius: 14px;
-  transition: box-shadow 0.15s, transform 0.15s;
+  transition:
+    box-shadow 0.15s,
+    transform 0.15s;
 }
 
 .result-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 25px rgba(23, 32, 51, 0.06);
+  box-shadow:
+    0 8px 25px rgba(23, 32, 51, 0.06);
 }
 
 .result-top {
@@ -368,10 +427,14 @@ button {
 }
 
 .result-text {
-  margin: 16px 0;
+  display: -webkit-box;
+  margin: 12px 0;
+  overflow: hidden;
   color: #283143;
   font-size: 15px;
-  line-height: 1.8;
+  line-height: 1.75;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .positions-row {
@@ -407,6 +470,74 @@ button {
   padding: 3px 7px;
   color: #8a92a0;
   font-size: 11px;
+}
+
+
+/* =========================
+   PAGINATION
+========================= */
+
+.pagination {
+  margin-top: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.page-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.page-button,
+.page-number {
+  border: 1px solid #dfe3eb;
+  background: white;
+  color: #596273;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.page-button {
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.page-number {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.page-number:hover:not(.active),
+.page-button:hover:not(:disabled) {
+  border-color: #635bff;
+  color: #635bff;
+}
+
+.page-number.active {
+  border-color: #635bff;
+  background: #635bff;
+  color: white;
+}
+
+.page-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.page-dots {
+  padding: 0 3px;
+  color: #8b93a1;
+  font-size: 12px;
 }
 
 
@@ -602,7 +733,8 @@ button {
   overflow: auto;
   background: white;
   border-radius: 16px;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 25px 80px rgba(0, 0, 0, 0.25);
 }
 
 .modal-header {
@@ -627,6 +759,10 @@ button {
   color: #606979;
   font-size: 24px;
   line-height: 1;
+}
+
+.close-button:hover {
+  background: #e6e8ed;
 }
 
 .document-content {
@@ -742,5 +878,18 @@ button {
 
   .about-section {
     padding: 22px;
+  }
+
+  .pagination {
+    gap: 6px;
+  }
+
+  .page-button {
+    padding: 7px 9px;
+  }
+
+  .page-number {
+    width: 31px;
+    height: 31px;
   }
 }

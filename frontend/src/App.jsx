@@ -18,6 +18,31 @@ const SEARCH_TYPES = {
   near: "NEAR",
 };
 
+const RESULTS_PER_PAGE = 5;
+
+const HINDI_SUGGESTIONS = [
+  "भारत",
+  "हिंदी",
+  "दिल्ली",
+  "सरकार",
+  "शिक्षा",
+  "स्वास्थ्य",
+  "जलवायु",
+  "विज्ञान",
+  "तकनीक",
+  "अर्थव्यवस्था",
+  "कृषि",
+  "पर्यावरण",
+  "समाचार",
+  "खेल",
+  "कोरोना",
+  "प्रौद्योगिकी",
+  "विश्वविद्यालय",
+  "राष्ट्र",
+  "समाज",
+  "विकास",
+];
+
 function App() {
   const [searchType, setSearchType] = useState("term");
   const [query, setQuery] = useState("");
@@ -35,6 +60,8 @@ function App() {
   const [documentLoading, setDocumentLoading] = useState(false);
 
   const [history, setHistory] = useState([]);
+
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     loadStats();
@@ -94,6 +121,7 @@ function App() {
       }
 
       setResults(data.results || []);
+      setCurrentPage(1);
 
       addToHistory({
         type: SEARCH_TYPES[searchType],
@@ -103,6 +131,7 @@ function App() {
       });
     } catch (err) {
       setResults([]);
+      setCurrentPage(1);
       setError(err.message || "Search failed.");
     } finally {
       setLoading(false);
@@ -113,7 +142,6 @@ function App() {
     setHistory((previous) => {
       const updated = [item, ...previous];
 
-      // Keep only the latest 8 searches.
       return updated.slice(0, 8);
     });
   }
@@ -123,6 +151,7 @@ function App() {
     setResults([]);
     setSearched(false);
     setError("");
+    setCurrentPage(1);
   }
 
   async function openDocument(docId) {
@@ -157,13 +186,76 @@ function App() {
     } else if (item.type === "NEAR") {
       setSearchType("near");
     }
+
+    setError("");
   }
+
+  function useSuggestion(suggestion) {
+    setQuery(suggestion);
+    setSearchType("term");
+    setError("");
+    setSearched(false);
+    setResults([]);
+    setCurrentPage(1);
+  }
+
+  function getPreview(text, maxLength = 280) {
+    if (!text) {
+      return "";
+    }
+
+    if (text.length <= maxLength) {
+      return text;
+    }
+
+    return text.slice(0, maxLength).trim() + "...";
+  }
+
+  const totalPages = Math.ceil(
+    results.length / RESULTS_PER_PAGE
+  );
+
+  const startIndex =
+    (currentPage - 1) * RESULTS_PER_PAGE;
+
+  const paginatedResults = results.slice(
+    startIndex,
+    startIndex + RESULTS_PER_PAGE
+  );
+
+  function getVisiblePages() {
+    if (totalPages <= 7) {
+      return Array.from(
+        { length: totalPages },
+        (_, index) => index + 1
+      );
+    }
+
+    const pages = new Set([
+      1,
+      2,
+      totalPages - 1,
+      totalPages,
+      currentPage - 1,
+      currentPage,
+      currentPage + 1,
+    ]);
+
+    return Array.from(pages)
+      .filter(
+        (page) => page >= 1 && page <= totalPages
+      )
+      .sort((a, b) => a - b);
+  }
+
+  const visiblePages = getVisiblePages();
 
   return (
     <div className="app-shell">
 
       {/* HEADER */}
       <header className="topbar">
+
         <div>
           <div className="brand">
             Hindi<span>IR</span>
@@ -177,6 +269,7 @@ function App() {
         <div className="header-badge">
           Java + React
         </div>
+
       </header>
 
 
@@ -184,8 +277,11 @@ function App() {
 
         {/* HERO */}
         <section className="hero-section">
+
           <div>
-            <p className="eyebrow">INFORMATION RETRIEVAL</p>
+            <p className="eyebrow">
+              INFORMATION RETRIEVAL
+            </p>
 
             <h1>
               Search Hindi documents
@@ -194,10 +290,11 @@ function App() {
             </h1>
 
             <p className="hero-description">
-              Search through 10,000 Hindi documents using term,
-              Boolean, phrase and proximity queries.
+              Search through 10,000 Hindi documents using
+              term, Boolean, phrase and proximity queries.
             </p>
           </div>
+
         </section>
 
 
@@ -205,11 +302,13 @@ function App() {
         <section className="search-card">
 
           <div className="search-header">
+
             <div>
               <h2>Search</h2>
 
               <p>
-                Choose a retrieval operation and enter your query.
+                Choose a retrieval operation and enter
+                your query.
               </p>
             </div>
 
@@ -217,10 +316,12 @@ function App() {
               <button
                 className="clear-button"
                 onClick={clearSearch}
+                type="button"
               >
                 Clear
               </button>
             )}
+
           </div>
 
 
@@ -229,13 +330,17 @@ function App() {
             <div className="search-controls">
 
               <div className="control-group">
-                <label>Search Type</label>
+
+                <label>
+                  Search Type
+                </label>
 
                 <select
                   value={searchType}
-                  onChange={(event) =>
-                    setSearchType(event.target.value)
-                  }
+                  onChange={(event) => {
+                    setSearchType(event.target.value);
+                    setError("");
+                  }}
                 >
                   <option value="term">
                     Single Term
@@ -257,10 +362,12 @@ function App() {
                     NEAR
                   </option>
                 </select>
+
               </div>
 
 
               <div className="control-group query-control">
+
                 <label>
                   {searchType === "phrase"
                     ? "Phrase"
@@ -282,12 +389,16 @@ function App() {
                       : "Example: भारत, हिंदी"
                   }
                 />
+
               </div>
 
 
               {searchType === "near" && (
                 <div className="control-group distance-control">
-                  <label>Distance</label>
+
+                  <label>
+                    Distance
+                  </label>
 
                   <input
                     type="number"
@@ -297,6 +408,7 @@ function App() {
                       setNearDistance(event.target.value)
                     }
                   />
+
                 </div>
               )}
 
@@ -306,7 +418,9 @@ function App() {
                 type="submit"
                 disabled={loading}
               >
-                {loading ? "Searching..." : "Search"}
+                {loading
+                  ? "Searching..."
+                  : "Search"}
               </button>
 
             </div>
@@ -314,21 +428,50 @@ function App() {
           </form>
 
 
+          {/* HINDI SUGGESTIONS */}
+          <div className="suggestions">
+
+            <span className="suggestions-label">
+              Hindi suggestions — click a word to search:
+            </span>
+
+            <div className="suggestion-list">
+
+              {HINDI_SUGGESTIONS.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  className="suggestion-chip"
+                  onClick={() =>
+                    useSuggestion(suggestion)
+                  }
+                  type="button"
+                >
+                  {suggestion}
+                </button>
+              ))}
+
+            </div>
+
+          </div>
+
+
           <div className="query-help">
+
             {searchType === "term" &&
               "Find documents containing one term."}
 
             {searchType === "and" &&
-              "Find documents containing both terms."}
+              "Find documents containing both terms. Separate them with a comma."}
 
             {searchType === "or" &&
-              "Find documents containing either term."}
+              "Find documents containing either term. Separate them with a comma."}
 
             {searchType === "phrase" &&
               "Find an exact sequence of terms."}
 
             {searchType === "near" &&
               `Find terms occurring within ${nearDistance} positions.`}
+
           </div>
 
         </section>
@@ -378,135 +521,265 @@ function App() {
           <div className="section-heading">
 
             <div>
-              <h2>Search Results</h2>
+
+              <h2>
+                Search Results
+              </h2>
 
               <p>
                 {searched
-                  ? `${results.length} matching documents`
+                  ? `${results.length} matching documents${
+                      results.length > 0
+                        ? ` · showing ${
+                            startIndex + 1
+                          }–${Math.min(
+                            startIndex +
+                              RESULTS_PER_PAGE,
+                            results.length
+                          )}`
+                        : ""
+                    }`
                   : "Results will appear here"}
               </p>
+
             </div>
 
             {searched && results.length > 0 && (
               <div className="result-time">
-                Search completed
+                {results.length} total results
               </div>
             )}
 
           </div>
 
 
+          {/* LOADING */}
           {loading && (
             <div className="state-card">
+
               <div className="loader"></div>
-              <p>Searching the positional index...</p>
-            </div>
-          )}
-
-
-          {!loading && !searched && (
-            <div className="state-card">
-              <div className="state-icon">⌕</div>
-
-              <h3>Ready to search</h3>
 
               <p>
-                Enter a Hindi term or query above to search
-                the indexed documents.
+                Searching the positional index...
               </p>
+
             </div>
           )}
 
 
+          {/* INITIAL STATE */}
+          {!loading && !searched && (
+            <div className="state-card">
+
+              <div className="state-icon">
+                ⌕
+              </div>
+
+              <h3>
+                Ready to search
+              </h3>
+
+              <p>
+                Enter a Hindi term or click one of the
+                suggestions above to search the indexed
+                documents.
+              </p>
+
+            </div>
+          )}
+
+
+          {/* NO RESULTS */}
           {!loading &&
             searched &&
             results.length === 0 &&
             !error && (
               <div className="state-card">
-                <div className="state-icon">∅</div>
 
-                <h3>No results found</h3>
+                <div className="state-icon">
+                  ∅
+                </div>
+
+                <h3>
+                  No results found
+                </h3>
 
                 <p>
-                  Try another term, phrase or search operation.
+                  Try another term, phrase or search
+                  operation.
                 </p>
+
               </div>
             )}
 
 
+          {/* RESULT LIST */}
           {!loading && results.length > 0 && (
-            <div className="results-list">
+            <>
+              <div className="results-list">
 
-              {results.map((result) => (
-                <article
-                  className="result-card"
-                  key={result.docId}
-                >
+                {paginatedResults.map((result) => (
+                  <article
+                    className="result-card"
+                    key={result.docId}
+                  >
 
-                  <div className="result-top">
+                    <div className="result-top">
 
-                    <div>
-                      <span className="doc-badge">
-                        DOC {result.docId}
-                      </span>
+                      <div>
 
-                      <span className="position-badge">
-                        {result.positions.length}{" "}
-                        position
-                        {result.positions.length !== 1
-                          ? "s"
-                          : ""}
-                      </span>
-                    </div>
-
-                    <button
-                      className="view-button"
-                      onClick={() =>
-                        openDocument(result.docId)
-                      }
-                    >
-                      View Document
-                    </button>
-
-                  </div>
-
-
-                  <p className="result-text">
-                    {result.text}
-                  </p>
-
-
-                  <div className="positions-row">
-
-                    <span className="positions-label">
-                      Positions:
-                    </span>
-
-                    <div className="position-list">
-                      {result.positions
-                        .slice(0, 20)
-                        .map((position) => (
-                          <span
-                            className="position-chip"
-                            key={position}
-                          >
-                            {position}
-                          </span>
-                        ))}
-
-                      {result.positions.length > 20 && (
-                        <span className="more-positions">
-                          +{result.positions.length - 20} more
+                        <span className="doc-badge">
+                          DOC {result.docId}
                         </span>
-                      )}
+
+                        <span className="position-badge">
+                          {result.positions.length}{" "}
+                          position
+                          {result.positions.length !== 1
+                            ? "s"
+                            : ""}
+                        </span>
+
+                      </div>
+
+                      <button
+                        className="view-button"
+                        onClick={() =>
+                          openDocument(result.docId)
+                        }
+                        type="button"
+                      >
+                        View Document
+                      </button>
+
                     </div>
+
+
+                    <p className="result-text">
+                      {getPreview(result.text)}
+                    </p>
+
+
+                    <div className="positions-row">
+
+                      <span className="positions-label">
+                        Positions:
+                      </span>
+
+                      <div className="position-list">
+
+                        {result.positions
+                          .slice(0, 20)
+                          .map((position) => (
+                            <span
+                              className="position-chip"
+                              key={position}
+                            >
+                              {position}
+                            </span>
+                          ))}
+
+                        {result.positions.length > 20 && (
+                          <span className="more-positions">
+                            +
+                            {result.positions.length - 20}
+                            {" "}more
+                          </span>
+                        )}
+
+                      </div>
+
+                    </div>
+
+                  </article>
+                ))}
+
+              </div>
+
+
+              {/* PAGINATION */}
+              {totalPages > 1 && (
+                <div className="pagination">
+
+                  <button
+                    className="page-button"
+                    disabled={currentPage === 1}
+                    onClick={() =>
+                      setCurrentPage(
+                        (page) => page - 1
+                      )
+                    }
+                    type="button"
+                  >
+                    ← Previous
+                  </button>
+
+
+                  <div className="page-numbers">
+
+                    {visiblePages.map(
+                      (page, index) => {
+
+                        const previousPage =
+                          visiblePages[index - 1];
+
+                        const needsDots =
+                          previousPage &&
+                          page - previousPage > 1;
+
+                        return (
+                          <span
+                            key={page}
+                            className="page-group"
+                          >
+
+                            {needsDots && (
+                              <span className="page-dots">
+                                ...
+                              </span>
+                            )}
+
+                            <button
+                              className={`page-number ${
+                                currentPage === page
+                                  ? "active"
+                                  : ""
+                              }`}
+                              onClick={() =>
+                                setCurrentPage(page)
+                              }
+                              type="button"
+                            >
+                              {page}
+                            </button>
+
+                          </span>
+                        );
+                      }
+                    )}
 
                   </div>
 
-                </article>
-              ))}
 
-            </div>
+                  <button
+                    className="page-button"
+                    disabled={
+                      currentPage === totalPages
+                    }
+                    onClick={() =>
+                      setCurrentPage(
+                        (page) => page + 1
+                      )
+                    }
+                    type="button"
+                  >
+                    Next →
+                  </button>
+
+                </div>
+              )}
+
+            </>
           )}
 
         </section>
@@ -519,11 +792,15 @@ function App() {
             <div className="section-heading">
 
               <div>
-                <h2>Recent Searches</h2>
+
+                <h2>
+                  Recent Searches
+                </h2>
 
                 <p>
                   Your latest queries from this session.
                 </p>
+
               </div>
 
             </div>
@@ -535,9 +812,14 @@ function App() {
                 <button
                   className="history-item"
                   key={`${item.query}-${index}`}
-                  onClick={() => useHistoryItem(item)}
+                  onClick={() =>
+                    useHistoryItem(item)
+                  }
+                  type="button"
                 >
+
                   <div>
+
                     <span className="history-type">
                       {item.type}
                     </span>
@@ -545,11 +827,13 @@ function App() {
                     <span className="history-query">
                       {item.query}
                     </span>
+
                   </div>
 
                   <span className="history-count">
                     {item.count} results
                   </span>
+
                 </button>
               ))}
 
@@ -563,17 +847,21 @@ function App() {
         <section className="about-section">
 
           <div>
-            <p className="eyebrow">HOW IT WORKS</p>
+
+            <p className="eyebrow">
+              HOW IT WORKS
+            </p>
 
             <h2>
               Positional Inverted Index
             </h2>
 
             <p>
-              Every document is tokenized and each term is
-              stored together with the document IDs and the
-              positions where the term occurs.
+              Every document is tokenized and each term
+              is stored together with the document IDs and
+              the positions where the term occurs.
             </p>
+
           </div>
 
 
@@ -585,7 +873,9 @@ function App() {
               <small>Hindi corpus</small>
             </div>
 
-            <div className="flow-arrow">→</div>
+            <div className="flow-arrow">
+              →
+            </div>
 
             <div className="flow-step">
               <span>02</span>
@@ -593,7 +883,9 @@ function App() {
               <small>Terms + positions</small>
             </div>
 
-            <div className="flow-arrow">→</div>
+            <div className="flow-arrow">
+              →
+            </div>
 
             <div className="flow-step">
               <span>03</span>
@@ -601,7 +893,9 @@ function App() {
               <small>Inverted structure</small>
             </div>
 
-            <div className="flow-arrow">→</div>
+            <div className="flow-arrow">
+              →
+            </div>
 
             <div className="flow-step">
               <span>04</span>
@@ -633,16 +927,21 @@ function App() {
             <div className="modal-header">
 
               <div>
+
                 <span className="doc-badge">
                   DOC {selectedDocument.docId}
                 </span>
 
-                <h2>Document Viewer</h2>
+                <h2>
+                  Document Viewer
+                </h2>
+
               </div>
 
               <button
                 className="close-button"
                 onClick={closeDocument}
+                type="button"
               >
                 ×
               </button>

@@ -132,7 +132,7 @@ button {
   line-height: 1.6;
 }
 
-/* Search panel */
+
 
 .search-panel {
   background: white;
@@ -196,7 +196,11 @@ button {
   background: #1d4ed8;
 }
 
-/* Near controls */
+.search-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}   
+
 
 .near-controls {
   margin-top: 12px;

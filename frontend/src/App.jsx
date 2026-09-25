@@ -7,312 +7,298 @@ import {
   searchPhrase,
   searchNear,
   getStats,
+  getDocument,
 } from "./api";
+
+const SEARCH_TYPES = {
+  term: "Single Term",
+  and: "AND",
+  or: "OR",
+  phrase: "Exact Phrase",
+  near: "NEAR",
+};
 
 function App() {
   const [searchType, setSearchType] = useState("term");
-
   const [query, setQuery] = useState("");
-
   const [nearDistance, setNearDistance] = useState(3);
 
   const [results, setResults] = useState([]);
-
-  const [resultCount, setResultCount] = useState(0);
-
-  const [searchTime, setSearchTime] = useState(null);
-
   const [searched, setSearched] = useState(false);
-
   const [loading, setLoading] = useState(false);
 
   const [error, setError] = useState("");
 
-  const [stats, setStats] = useState({
-    documents: 0,
-    uniqueTerms: 0,
-    totalPositions: 0,
-    indexingTimeMs: 0,
-  });
+  const [stats, setStats] = useState(null);
 
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [documentLoading, setDocumentLoading] = useState(false);
 
-  /*
-   * Load backend statistics
-   * when the React application starts.
-   */
+  const [history, setHistory] = useState([]);
 
   useEffect(() => {
-    async function loadStats() {
-      try {
-        const data = await getStats();
-
-        setStats(data);
-
-      } catch (err) {
-        console.error("Could not load backend stats:", err);
-      }
-    }
-
     loadStats();
   }, []);
 
-
-  /*
-   * Split input for AND / OR / NEAR searches.
-   *
-   * Example:
-   *
-   * भारत, हिंदी
-   *
-   * becomes:
-   *
-   * ["भारत", "हिंदी"]
-   */
-
-  function getTwoTerms() {
-    const parts = query
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-
-    if (parts.length !== 2) {
-      throw new Error(
-        "Enter exactly two terms separated by a comma."
-      );
+  async function loadStats() {
+    try {
+      const data = await getStats();
+      setStats(data);
+    } catch (err) {
+      console.error("Failed to load stats:", err);
     }
-
-    return parts;
   }
 
-
-  /*
-   * Perform search.
-   */
-
   async function handleSearch(event) {
-    event.preventDefault();
-
-    setError("");
-
-    setResults([]);
-
-    setSearched(false);
+    event?.preventDefault();
 
     if (!query.trim()) {
       setError("Please enter a search query.");
-
       return;
     }
 
     setLoading(true);
+    setError("");
+    setSearched(true);
 
     try {
       let data;
 
-
       if (searchType === "term") {
-
         data = await searchTerm(query.trim());
-
-      }
-
-
-      else if (searchType === "and") {
-
-        const [term1, term2] = getTwoTerms();
-
-        data = await searchAnd(term1, term2);
-
-      }
-
-
-      else if (searchType === "or") {
-
-        const [term1, term2] = getTwoTerms();
-
-        data = await searchOr(term1, term2);
-
-      }
-
-
-      else if (searchType === "phrase") {
-
+      } else if (searchType === "phrase") {
         data = await searchPhrase(query.trim());
+      } else {
+        const parts = query
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
 
+        if (parts.length !== 2) {
+          throw new Error(
+            "Enter exactly two terms separated by a comma. Example: भारत, हिंदी"
+          );
+        }
+
+        if (searchType === "and") {
+          data = await searchAnd(parts[0], parts[1]);
+        } else if (searchType === "or") {
+          data = await searchOr(parts[0], parts[1]);
+        } else if (searchType === "near") {
+          data = await searchNear(
+            parts[0],
+            parts[1],
+            Number(nearDistance)
+          );
+        }
       }
-
-
-      else if (searchType === "near") {
-
-        const [term1, term2] = getTwoTerms();
-
-        data = await searchNear(
-          term1,
-          term2,
-          nearDistance
-        );
-
-      }
-
 
       setResults(data.results || []);
 
-      setResultCount(data.count || 0);
-
-      setSearchTime(data.searchTimeMs);
-
-      setSearched(true);
-
+      addToHistory({
+        type: SEARCH_TYPES[searchType],
+        query: query.trim(),
+        count: data.count || 0,
+        time: data.searchTimeMs || 0,
+      });
     } catch (err) {
-
-      setError(err.message);
-
+      setResults([]);
+      setError(err.message || "Search failed.");
     } finally {
-
       setLoading(false);
-
     }
   }
 
+  function addToHistory(item) {
+    setHistory((previous) => {
+      const updated = [item, ...previous];
 
-  function getPlaceholder() {
+      // Keep only the latest 8 searches.
+      return updated.slice(0, 8);
+    });
+  }
 
-    switch (searchType) {
+  function clearSearch() {
+    setQuery("");
+    setResults([]);
+    setSearched(false);
+    setError("");
+  }
 
-      case "and":
-        return "भारत, हिंदी";
+  async function openDocument(docId) {
+    setDocumentLoading(true);
+    setError("");
 
-      case "or":
-        return "भारत, हिंदी";
-
-      case "phrase":
-        return "भारत की राजधानी";
-
-      case "near":
-        return "भारत, दिल्ली";
-
-      default:
-        return "भारत";
+    try {
+      const data = await getDocument(docId);
+      setSelectedDocument(data);
+    } catch (err) {
+      setError(err.message || "Failed to load document.");
+    } finally {
+      setDocumentLoading(false);
     }
   }
 
+  function closeDocument() {
+    setSelectedDocument(null);
+  }
+
+  function useHistoryItem(item) {
+    setQuery(item.query);
+
+    if (item.type === "Single Term") {
+      setSearchType("term");
+    } else if (item.type === "AND") {
+      setSearchType("and");
+    } else if (item.type === "OR") {
+      setSearchType("or");
+    } else if (item.type === "Exact Phrase") {
+      setSearchType("phrase");
+    } else if (item.type === "NEAR") {
+      setSearchType("near");
+    }
+  }
 
   return (
-    <div className="app">
+    <div className="app-shell">
 
       {/* HEADER */}
-
-      <header className="header">
-
-        <div className="header-inner">
-
-          <div className="logo-section">
-
-            <div className="logo">
-              IR
-            </div>
-
-            <div>
-
-              <h1 className="logo-title">
-                Hindi IR Search
-              </h1>
-
-              <p className="logo-subtitle">
-                Positional Inverted Index
-              </p>
-
-            </div>
-
+      <header className="topbar">
+        <div>
+          <div className="brand">
+            Hindi<span>IR</span>
           </div>
 
-
-          <div className="backend-status">
-
-            <span className="status-dot"></span>
-
-            Java Backend :8080
-
-          </div>
-
+          <p className="subtitle">
+            Positional Inverted Index Search Engine
+          </p>
         </div>
 
+        <div className="header-badge">
+          Java + React
+        </div>
       </header>
 
 
-      {/* MAIN */}
-
-      <main className="main">
+      <main className="main-container">
 
         {/* HERO */}
+        <section className="hero-section">
+          <div>
+            <p className="eyebrow">INFORMATION RETRIEVAL</p>
 
-        <section className="hero">
+            <h1>
+              Search Hindi documents
+              <br />
+              using a positional index.
+            </h1>
 
-          <h1>
-            Search Hindi Documents
-          </h1>
-
-          <p>
-            Search a 10,000-document Hindi corpus
-            using a positional inverted index built
-            from scratch in Java.
-          </p>
-
+            <p className="hero-description">
+              Search through 10,000 Hindi documents using term,
+              Boolean, phrase and proximity queries.
+            </p>
+          </div>
         </section>
 
 
-        {/* SEARCH */}
+        {/* SEARCH CARD */}
+        <section className="search-card">
 
-        <section className="search-panel">
+          <div className="search-header">
+            <div>
+              <h2>Search</h2>
+
+              <p>
+                Choose a retrieval operation and enter your query.
+              </p>
+            </div>
+
+            {searched && (
+              <button
+                className="clear-button"
+                onClick={clearSearch}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
 
           <form onSubmit={handleSearch}>
 
-            <div className="search-row">
+            <div className="search-controls">
 
-              <select
-                className="search-type"
-                value={searchType}
-                onChange={(event) => {
-                  setSearchType(event.target.value);
-                  setResults([]);
-                  setError("");
-                  setSearched(false);
-                }}
-              >
+              <div className="control-group">
+                <label>Search Type</label>
 
-                <option value="term">
-                  Term
-                </option>
+                <select
+                  value={searchType}
+                  onChange={(event) =>
+                    setSearchType(event.target.value)
+                  }
+                >
+                  <option value="term">
+                    Single Term
+                  </option>
 
-                <option value="and">
-                  AND
-                </option>
+                  <option value="and">
+                    AND
+                  </option>
 
-                <option value="or">
-                  OR
-                </option>
+                  <option value="or">
+                    OR
+                  </option>
 
-                <option value="phrase">
-                  Phrase
-                </option>
+                  <option value="phrase">
+                    Exact Phrase
+                  </option>
 
-                <option value="near">
-                  NEAR
-                </option>
-
-              </select>
+                  <option value="near">
+                    NEAR
+                  </option>
+                </select>
+              </div>
 
 
-              <input
-                className="search-input"
-                type="text"
-                value={query}
-                onChange={(event) =>
-                  setQuery(event.target.value)
-                }
-                placeholder={getPlaceholder()}
-                lang="hi"
-              />
+              <div className="control-group query-control">
+                <label>
+                  {searchType === "phrase"
+                    ? "Phrase"
+                    : searchType === "term"
+                    ? "Term"
+                    : "Two terms"}
+                </label>
+
+                <input
+                  value={query}
+                  onChange={(event) =>
+                    setQuery(event.target.value)
+                  }
+                  placeholder={
+                    searchType === "term"
+                      ? "Example: भारत"
+                      : searchType === "phrase"
+                      ? "Example: भारत की राजधानी"
+                      : "Example: भारत, हिंदी"
+                  }
+                />
+              </div>
+
+
+              {searchType === "near" && (
+                <div className="control-group distance-control">
+                  <label>Distance</label>
+
+                  <input
+                    type="number"
+                    min="1"
+                    value={nearDistance}
+                    onChange={(event) =>
+                      setNearDistance(event.target.value)
+                    }
+                  />
+                </div>
+              )}
 
 
               <button
@@ -320,342 +306,399 @@ function App() {
                 type="submit"
                 disabled={loading}
               >
-
                 {loading ? "Searching..." : "Search"}
-
               </button>
 
             </div>
 
-
-            {searchType === "near" && (
-
-              <div className="near-controls">
-
-                <span>
-                  Maximum distance:
-                </span>
-
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={nearDistance}
-                  onChange={(event) =>
-                    setNearDistance(event.target.value)
-                  }
-                />
-
-                <span>
-                  positions
-                </span>
-
-              </div>
-
-            )}
-
           </form>
+
+
+          <div className="query-help">
+            {searchType === "term" &&
+              "Find documents containing one term."}
+
+            {searchType === "and" &&
+              "Find documents containing both terms."}
+
+            {searchType === "or" &&
+              "Find documents containing either term."}
+
+            {searchType === "phrase" &&
+              "Find an exact sequence of terms."}
+
+            {searchType === "near" &&
+              `Find terms occurring within ${nearDistance} positions.`}
+          </div>
 
         </section>
 
 
         {/* ERROR */}
-
         {error && (
-
-          <div
-            style={{
-              marginTop: "15px",
-              padding: "13px 15px",
-              borderRadius: "10px",
-              background: "#fef2f2",
-              border: "1px solid #fecaca",
-              color: "#b91c1c",
-            }}
-          >
-
-            {error}
-
+          <div className="error-box">
+            <strong>Error:</strong> {error}
           </div>
-
         )}
 
 
-        {/* STATS */}
-
+        {/* STATISTICS */}
         <section className="stats-grid">
 
-          <div className="stat-card">
+          <StatCard
+            label="Documents"
+            value={stats?.documents ?? "—"}
+          />
 
-            <div className="stat-label">
-              Documents
-            </div>
+          <StatCard
+            label="Unique Terms"
+            value={stats?.uniqueTerms ?? "—"}
+          />
 
-            <div className="stat-value">
-              {stats.documents.toLocaleString()}
-            </div>
+          <StatCard
+            label="Indexed Positions"
+            value={stats?.totalPositions ?? "—"}
+          />
 
-          </div>
-
-
-          <div className="stat-card">
-
-            <div className="stat-label">
-              Unique Terms
-            </div>
-
-            <div className="stat-value">
-              {stats.uniqueTerms.toLocaleString()}
-            </div>
-
-          </div>
-
-
-          <div className="stat-card">
-
-            <div className="stat-label">
-              Total Positions
-            </div>
-
-            <div className="stat-value">
-              {stats.totalPositions.toLocaleString()}
-            </div>
-
-          </div>
-
-
-          <div className="stat-card">
-
-            <div className="stat-label">
-              Index Time
-            </div>
-
-            <div className="stat-value">
-              {stats.indexingTimeMs} ms
-            </div>
-
-          </div>
+          <StatCard
+            label="Indexing Time"
+            value={
+              stats
+                ? `${stats.indexingTimeMs} ms`
+                : "—"
+            }
+          />
 
         </section>
 
 
-        {/* RESULTS + INFO */}
+        {/* RESULTS */}
+        <section className="results-section">
 
-        <section className="content-grid">
+          <div className="section-heading">
 
-          <div className="results-panel">
+            <div>
+              <h2>Search Results</h2>
 
-            <div className="panel-header">
-
-              <h2>
-                Search Results
-              </h2>
-
-              <span className="result-count">
-
+              <p>
                 {searched
-                  ? `${resultCount.toLocaleString()} documents`
-                  : "No search yet"}
-
-              </span>
-
+                  ? `${results.length} matching documents`
+                  : "Results will appear here"}
+              </p>
             </div>
 
-
-            {!searched && (
-
-              <div className="empty-state">
-
-                <div className="empty-icon">
-                  🔎
-                </div>
-
-                <h3>
-                  Start searching
-                </h3>
-
-                <p>
-                  Enter a Hindi term, phrase, or
-                  proximity query to search the corpus.
-                </p>
-
+            {searched && results.length > 0 && (
+              <div className="result-time">
+                Search completed
               </div>
-
             )}
-
-
-            {searched && results.length === 0 && !error && (
-
-              <div className="empty-state">
-
-                <div className="empty-icon">
-                  🔍
-                </div>
-
-                <h3>
-                  No results found
-                </h3>
-
-                <p>
-                  No documents matched your query.
-                </p>
-
-              </div>
-
-            )}
-
-
-            {results.map((result) => (
-
-              <article
-                className="result-card"
-                key={result.docId}
-              >
-
-                <div className="result-top">
-
-                  <span className="doc-id">
-                    DOC {result.docId}
-                  </span>
-
-                  <span className="position-badge">
-
-                    Positions:{" "}
-                    {result.positions.join(", ")}
-
-                  </span>
-
-                </div>
-
-
-                <p
-                  className="result-text"
-                  lang="hi"
-                >
-                  {result.text}
-                </p>
-
-              </article>
-
-            ))}
 
           </div>
 
 
-          {/* INFORMATION */}
+          {loading && (
+            <div className="state-card">
+              <div className="loader"></div>
+              <p>Searching the positional index...</p>
+            </div>
+          )}
 
-          <aside className="info-panel">
 
-            <div className="panel-header">
+          {!loading && !searched && (
+            <div className="state-card">
+              <div className="state-icon">⌕</div>
 
-              <h2>
-                Search Information
-              </h2>
+              <h3>Ready to search</h3>
+
+              <p>
+                Enter a Hindi term or query above to search
+                the indexed documents.
+              </p>
+            </div>
+          )}
+
+
+          {!loading &&
+            searched &&
+            results.length === 0 &&
+            !error && (
+              <div className="state-card">
+                <div className="state-icon">∅</div>
+
+                <h3>No results found</h3>
+
+                <p>
+                  Try another term, phrase or search operation.
+                </p>
+              </div>
+            )}
+
+
+          {!loading && results.length > 0 && (
+            <div className="results-list">
+
+              {results.map((result) => (
+                <article
+                  className="result-card"
+                  key={result.docId}
+                >
+
+                  <div className="result-top">
+
+                    <div>
+                      <span className="doc-badge">
+                        DOC {result.docId}
+                      </span>
+
+                      <span className="position-badge">
+                        {result.positions.length}{" "}
+                        position
+                        {result.positions.length !== 1
+                          ? "s"
+                          : ""}
+                      </span>
+                    </div>
+
+                    <button
+                      className="view-button"
+                      onClick={() =>
+                        openDocument(result.docId)
+                      }
+                    >
+                      View Document
+                    </button>
+
+                  </div>
+
+
+                  <p className="result-text">
+                    {result.text}
+                  </p>
+
+
+                  <div className="positions-row">
+
+                    <span className="positions-label">
+                      Positions:
+                    </span>
+
+                    <div className="position-list">
+                      {result.positions
+                        .slice(0, 20)
+                        .map((position) => (
+                          <span
+                            className="position-chip"
+                            key={position}
+                          >
+                            {position}
+                          </span>
+                        ))}
+
+                      {result.positions.length > 20 && (
+                        <span className="more-positions">
+                          +{result.positions.length - 20} more
+                        </span>
+                      )}
+                    </div>
+
+                  </div>
+
+                </article>
+              ))}
+
+            </div>
+          )}
+
+        </section>
+
+
+        {/* SEARCH HISTORY */}
+        {history.length > 0 && (
+          <section className="history-section">
+
+            <div className="section-heading">
+
+              <div>
+                <h2>Recent Searches</h2>
+
+                <p>
+                  Your latest queries from this session.
+                </p>
+              </div>
 
             </div>
 
 
-            <div className="info-content">
+            <div className="history-list">
 
-              {searched ? (
-
-                <>
-                  <h3>
-                    Query Details
-                  </h3>
-
-                  <p>
-                    Type: <strong>{searchType}</strong>
-                  </p>
-
-                  <p>
-                    Query: <strong>{query}</strong>
-                  </p>
-
-                  {searchTime !== null && (
-
-                    <p>
-                      Search time:{" "}
-                      <strong>
-                        {searchTime} ms
-                      </strong>
-                    </p>
-
-                  )}
-
-                  <div className="search-types">
-
-                    <span className="type-badge">
-                      {resultCount} Results
+              {history.map((item, index) => (
+                <button
+                  className="history-item"
+                  key={`${item.query}-${index}`}
+                  onClick={() => useHistoryItem(item)}
+                >
+                  <div>
+                    <span className="history-type">
+                      {item.type}
                     </span>
 
-                    <span className="type-badge">
-                      Positional
+                    <span className="history-query">
+                      {item.query}
                     </span>
-
                   </div>
-                </>
 
-              ) : (
-
-                <>
-                  <h3>
-                    Positional Inverted Index
-                  </h3>
-
-                  <p>
-                    Each term is associated with the
-                    documents in which it occurs and
-                    the positions where it occurs.
-                  </p>
-
-                  <div className="search-types">
-
-                    <span className="type-badge">
-                      Term
-                    </span>
-
-                    <span className="type-badge">
-                      AND
-                    </span>
-
-                    <span className="type-badge">
-                      OR
-                    </span>
-
-                    <span className="type-badge">
-                      Phrase
-                    </span>
-
-                    <span className="type-badge">
-                      NEAR
-                    </span>
-
-                  </div>
-                </>
-
-              )}
+                  <span className="history-count">
+                    {item.count} results
+                  </span>
+                </button>
+              ))}
 
             </div>
 
-          </aside>
+          </section>
+        )}
+
+
+        {/* ABOUT INDEX */}
+        <section className="about-section">
+
+          <div>
+            <p className="eyebrow">HOW IT WORKS</p>
+
+            <h2>
+              Positional Inverted Index
+            </h2>
+
+            <p>
+              Every document is tokenized and each term is
+              stored together with the document IDs and the
+              positions where the term occurs.
+            </p>
+          </div>
+
+
+          <div className="index-flow">
+
+            <div className="flow-step">
+              <span>01</span>
+              <strong>Documents</strong>
+              <small>Hindi corpus</small>
+            </div>
+
+            <div className="flow-arrow">→</div>
+
+            <div className="flow-step">
+              <span>02</span>
+              <strong>Tokenizer</strong>
+              <small>Terms + positions</small>
+            </div>
+
+            <div className="flow-arrow">→</div>
+
+            <div className="flow-step">
+              <span>03</span>
+              <strong>Index</strong>
+              <small>Inverted structure</small>
+            </div>
+
+            <div className="flow-arrow">→</div>
+
+            <div className="flow-step">
+              <span>04</span>
+              <strong>Search</strong>
+              <small>IR operations</small>
+            </div>
+
+          </div>
 
         </section>
 
       </main>
 
 
-      {/* FOOTER */}
+      {/* DOCUMENT MODAL */}
+      {selectedDocument && (
+        <div
+          className="modal-overlay"
+          onClick={closeDocument}
+        >
 
+          <div
+            className="document-modal"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+
+            <div className="modal-header">
+
+              <div>
+                <span className="doc-badge">
+                  DOC {selectedDocument.docId}
+                </span>
+
+                <h2>Document Viewer</h2>
+              </div>
+
+              <button
+                className="close-button"
+                onClick={closeDocument}
+              >
+                ×
+              </button>
+
+            </div>
+
+
+            {documentLoading ? (
+              <div className="modal-loading">
+                Loading document...
+              </div>
+            ) : (
+              <div className="document-content">
+                {selectedDocument.text}
+              </div>
+            )}
+
+          </div>
+
+        </div>
+      )}
+
+
+      {/* FOOTER */}
       <footer className="footer">
 
-        Hindi Information Retrieval System ·
-        Java Positional Index + React
+        <span>
+          Hindi Information Retrieval System
+        </span>
+
+        <span>
+          Positional Inverted Index · Java · React
+        </span>
 
       </footer>
 
     </div>
   );
 }
+
+
+function StatCard({ label, value }) {
+  return (
+    <div className="stat-card">
+
+      <span className="stat-label">
+        {label}
+      </span>
+
+      <strong className="stat-value">
+        {value}
+      </strong>
+
+    </div>
+  );
+}
+
 
 export default App;

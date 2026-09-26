@@ -21,16 +21,23 @@ public class SearchServer {
         index = positionalIndex;
         documents = docs;
         indexingTimeMs = buildTime;
+int port = Integer.parseInt(
+        System.getenv().getOrDefault("PORT", "10000")
+);
 
-        HttpServer server = HttpServer.create(
-                new InetSocketAddress(8080), 0);
+HttpServer server = HttpServer.create(
+        new InetSocketAddress("0.0.0.0", port),
+        0
+);
 
         server.createContext("/api/search", SearchServer::handleSearch);
         server.createContext("/api/document", SearchServer::handleDocument);
         server.createContext("/api/stats", SearchServer::handleStats);
 
         server.start();
-        System.out.println("Server running at http://localhost:8080");
+        System.out.println(
+    "Server running on port " + port
+);
     }
 
     private static void handleSearch(HttpExchange exchange)
